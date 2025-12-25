@@ -109,7 +109,7 @@ class VocabularyApp:
         visible_words = [w for w in self.words if w.visible]
         return [WordDisplay(word) for word in visible_words]
 
-# Streamlit UI 渲染（新增清除按钮）
+# Streamlit UI 渲染（修复清除按钮样式，兼容所有版本）
 def main():
     st.set_page_config(page_title="A4纸背单词", layout="wide")
     app = VocabularyApp()
@@ -123,8 +123,26 @@ def main():
     with col2:
         add_btn = st.button("添加并刷新", type="primary")
     with col3:
-        # 一键清除按钮（红色警示样式，防止误触）
-        clear_btn = st.button("一键清除所有单词", type="secondary", bg_color="#d32f2f", text_color="#ffffff")
+        # 修复：用 markdown 自定义红色清除按钮，兼容所有 Streamlit 版本
+        # 隐藏原生按钮，通过 markdown 触发点击事件
+        clear_btn_clicked = st.button("一键清除所有单词", type="secondary")
+        # 自定义按钮样式（覆盖原生样式）
+        st.markdown("""
+            <style>
+            div[data-testid="stButton"] > button:last-child {
+                background-color: #d32f2f;
+                color: #ffffff;
+                border: none;
+                border-radius: 4px;
+                padding: 0.5rem 1rem;
+                width: 100%;
+            }
+            div[data-testid="stButton"] > button:last-child:hover {
+                background-color: #b71c1c;
+                cursor: pointer;
+            }
+            </style>
+        """, unsafe_allow_html=True)
 
     # 添加单词逻辑
     if add_btn or (word_input and st.session_state.get("last_input") != word_input):
@@ -133,7 +151,7 @@ def main():
             st.session_state.last_input = word_input
 
     # 清除单词逻辑
-    if clear_btn:
+    if clear_btn_clicked:
         app.clear_all_words()
         # 清除输入框缓存
         st.session_state.last_input = ""
