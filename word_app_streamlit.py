@@ -1,14 +1,14 @@
 import streamlit as st
 import random
-from typing import List, Dict
+from typing import List
 
 class WordItem:
     """单词数据类"""
     def __init__(self, text: str):
         self.text = text
-        self.total_count = 0  # 总共出现次数
-        self.last_seen_round = 0  # 上次出现的轮次
-        self.visible = True  # 当前是否可见
+        self.total_count = 0
+        self.last_seen_round = 0
+        self.visible = True
         
     def to_dict(self):
         return {
@@ -38,9 +38,8 @@ class VocabularyApp:
         self.words: List[WordItem] = []
         self.current_round = 0
         self.max_display = 15
-        self.word_displays: List[WordDisplay] = []
         
-        # Streamlit 状态管理
+        # 初始化session_state
         if "words" not in st.session_state:
             st.session_state.words = []
         if "current_round" not in st.session_state:
@@ -55,7 +54,6 @@ class VocabularyApp:
         self.words.append(new_word)
         self.current_round += 1
         self._update_visibility()
-        # 保存到 session_state
         st.session_state.words = self.words
         st.session_state.current_round = self.current_round
 
@@ -65,10 +63,8 @@ class VocabularyApp:
         st.session_state.current_round = self.current_round
 
     def clear_all_words(self):
-        """一键清除所有单词"""
         self.words = []
         self.current_round = 0
-        # 清空 session_state
         st.session_state.words = []
         st.session_state.current_round = 0
 
@@ -76,9 +72,8 @@ class VocabularyApp:
         if len(self.words) <= self.max_display:
             for word in self.words:
                 word.visible = True
-                if word.visible:
-                    word.total_count += 1
-                    word.last_seen_round = self.current_round
+                word.total_count += 1
+                word.last_seen_round = self.current_round
             return
         
         sorted_words = sorted(self.words, key=lambda x: x.total_count)
@@ -103,7 +98,7 @@ class VocabularyApp:
 
     def get_visible_word_displays(self):
         visible_words = [w for w in self.words if w.visible]
-        # 打乱可见单词顺序，使每次显示位置不同
+        # 关键修复1：每次获取时随机打乱可见单词顺序
         random.shuffle(visible_words)
         return [WordDisplay(word) for word in visible_words]
 
@@ -111,20 +106,21 @@ def main():
     st.set_page_config(page_title="A4纸背单词", layout="wide")
     app = VocabularyApp()
 
-    # 初始化session_state中的输入状态
-    if "last_input" not in st.session_state:
-        st.session_state.last_input = ""
+    # 初始化输入框状态
+    if "word_input" not in st.session_state:
+        st.session_state.word_input = ""
 
     # 顶部输入区域
     st.title("A4纸背单词")
     col1, col2, col3 = st.columns([4, 1, 1])
     with col1:
-        # 使用key确保输入框状态可管理
+        # 关键修复2：绑定输入框到session_state
         word_input = st.text_input(
             "输入新单词", 
+            value=st.session_state.word_input,  # 绑定值
             placeholder="输入英文单词后按回车", 
             label_visibility="collapsed",
-            key="word_input"
+            key="word_input"  # 关键：指定key用于状态控制
         )
     with col2:
         add_btn = st.button("添加并刷新", type="primary")
@@ -142,24 +138,24 @@ def main():
             }
             div[data-testid="stButton"] > button:last-child:hover {
                 background-color: #b71c1c;
-                cursor: pointer;
             }
             </style>
         """, unsafe_allow_html=True)
 
-    # 添加单词逻辑 - 修复输入框清空问题
-    if add_btn or (word_input and st.session_state.last_input != word_input):
+    # 添加单词逻辑
+    if add_btn or (word_input and word_input != st.session_state.get("last_input", "")):
         if word_input:
             app.add_word(word_input)
             st.session_state.last_input = word_input
-            # 清除输入框内容
+            # 关键修复3：清空输入框
             st.session_state.word_input = ""
+            st.rerun()  # 强制刷新页面使清空生效
 
     # 清除单词逻辑
     if clear_btn_clicked:
         app.clear_all_words()
+        st.session_state.word_input = ""
         st.session_state.last_input = ""
-        st.session_state.word_input = ""  # 清除输入框
         st.rerun()
 
     # 刷新按钮
