@@ -2,7 +2,6 @@ import streamlit as st
 import random
 from typing import List, Dict
 
-# 保留你原有的 WordItem 类（完全不变）
 class WordItem:
     """单词数据类"""
     def __init__(self, text: str):
@@ -19,7 +18,6 @@ class WordItem:
             "visible": self.visible
         }
 
-# 简化 WordDisplay 为 Streamlit 兼容版本（保留随机样式）
 class WordDisplay:
     def __init__(self, word: WordItem):
         self.word = word
@@ -35,7 +33,6 @@ class WordDisplay:
         ]
         return random.choice(colors)
 
-# 保留你原有的核心算法（新增清除功能相关逻辑）
 class VocabularyApp:
     def __init__(self):
         self.words: List[WordItem] = []
@@ -43,7 +40,7 @@ class VocabularyApp:
         self.max_display = 15
         self.word_displays: List[WordDisplay] = []
         
-        # Streamlit 状态管理（临时保存，关闭页面丢失，符合你的需求）
+        # Streamlit 状态管理
         if "words" not in st.session_state:
             st.session_state.words = []
         if "current_round" not in st.session_state:
@@ -76,7 +73,6 @@ class VocabularyApp:
         st.session_state.current_round = 0
 
     def _update_visibility(self):
-        # 完全保留你原有的算法逻辑
         if len(self.words) <= self.max_display:
             for word in self.words:
                 word.visible = True
@@ -107,26 +103,33 @@ class VocabularyApp:
 
     def get_visible_word_displays(self):
         visible_words = [w for w in self.words if w.visible]
+        # 打乱可见单词顺序，使每次显示位置不同
+        random.shuffle(visible_words)
         return [WordDisplay(word) for word in visible_words]
 
-# Streamlit UI 渲染（修复清除按钮样式，兼容所有版本）
 def main():
     st.set_page_config(page_title="A4纸背单词", layout="wide")
     app = VocabularyApp()
 
+    # 初始化session_state中的输入状态
+    if "last_input" not in st.session_state:
+        st.session_state.last_input = ""
+
     # 顶部输入区域
     st.title("A4纸背单词")
-    # 调整布局：输入框+添加按钮+清除按钮
     col1, col2, col3 = st.columns([4, 1, 1])
     with col1:
-        word_input = st.text_input("输入新单词", placeholder="输入英文单词后按回车", label_visibility="collapsed")
+        # 使用key确保输入框状态可管理
+        word_input = st.text_input(
+            "输入新单词", 
+            placeholder="输入英文单词后按回车", 
+            label_visibility="collapsed",
+            key="word_input"
+        )
     with col2:
         add_btn = st.button("添加并刷新", type="primary")
     with col3:
-        # 修复：用 markdown 自定义红色清除按钮，兼容所有 Streamlit 版本
-        # 隐藏原生按钮，通过 markdown 触发点击事件
         clear_btn_clicked = st.button("一键清除所有单词", type="secondary")
-        # 自定义按钮样式（覆盖原生样式）
         st.markdown("""
             <style>
             div[data-testid="stButton"] > button:last-child {
@@ -144,18 +147,19 @@ def main():
             </style>
         """, unsafe_allow_html=True)
 
-    # 添加单词逻辑
-    if add_btn or (word_input and st.session_state.get("last_input") != word_input):
+    # 添加单词逻辑 - 修复输入框清空问题
+    if add_btn or (word_input and st.session_state.last_input != word_input):
         if word_input:
             app.add_word(word_input)
             st.session_state.last_input = word_input
+            # 清除输入框内容
+            st.session_state.word_input = ""
 
     # 清除单词逻辑
     if clear_btn_clicked:
         app.clear_all_words()
-        # 清除输入框缓存
         st.session_state.last_input = ""
-        # 刷新页面（可选，让效果更直观）
+        st.session_state.word_input = ""  # 清除输入框
         st.rerun()
 
     # 刷新按钮
@@ -169,10 +173,9 @@ def main():
     hidden = total - visible
     st.caption(f"总单词数: {total} | 显示: {visible} | 隐藏: {hidden}")
 
-    # 单词显示区域（模拟随机布局，保留你的核心样式）
+    # 单词显示区域
     word_displays = app.get_visible_word_displays()
     if word_displays:
-        # 用列布局模拟随机位置，同时保留字体大小、颜色、旋转
         cols = st.columns(5)
         for i, display in enumerate(word_displays):
             with cols[i % 5]:
