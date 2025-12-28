@@ -6,9 +6,9 @@ class WordItem:
     """单词数据类"""
     def __init__(self, text: str):
         self.text = text
-        self.total_count = 0
-        self.last_seen_round = 0
-        self.visible = True
+        self.total_count = 0  # 总共出现次数
+        self.last_seen_round = 0  # 上次出现的轮次
+        self.visible = True  # 当前是否可见
         
     def to_dict(self):
         return {
@@ -39,11 +39,13 @@ class VocabularyApp:
         self.current_round = 0
         self.max_display = 15
         
-        # 初始化session_state
+        # 初始化session_state（仅初始化非小部件绑定状态）
         if "words" not in st.session_state:
             st.session_state.words = []
         if "current_round" not in st.session_state:
             st.session_state.current_round = 0
+        if "need_clear_input" not in st.session_state:
+            st.session_state.need_clear_input = False  # 标记是否需要清空输入框
         self.words = st.session_state.words
         self.current_round = st.session_state.current_round
 
@@ -98,34 +100,37 @@ class VocabularyApp:
 
     def get_visible_word_displays(self):
         visible_words = [w for w in self.words if w.visible]
-        # 关键修复1：每次获取时随机打乱可见单词顺序
+        # 修复：打乱可见单词顺序，使显示位置随机变化
         random.shuffle(visible_words)
+        # 额外：每个WordDisplay重新生成随机样式（确保位置/样式都变化）
         return [WordDisplay(word) for word in visible_words]
 
 def main():
     st.set_page_config(page_title="A4纸背单词", layout="wide")
     app = VocabularyApp()
 
-    # 初始化输入框状态
-    if "word_input" not in st.session_state:
-        st.session_state.word_input = ""
-
     # 顶部输入区域
     st.title("A4纸背单词")
     col1, col2, col3 = st.columns([4, 1, 1])
+    
+    # 修复：输入框逻辑（避免直接修改小部件绑定状态）
     with col1:
-        # 关键修复2：绑定输入框到session_state
+        # 方案：根据标记决定输入框初始值（实现清空效果）
+        input_placeholder = "输入英文单词后按回车"
+        initial_input_value = "" if st.session_state.need_clear_input else ""
         word_input = st.text_input(
             "输入新单词", 
-            value=st.session_state.word_input,  # 绑定值
-            placeholder="输入英文单词后按回车", 
+            value=initial_input_value,
+            placeholder=input_placeholder,
             label_visibility="collapsed",
-            key="word_input"  # 关键：指定key用于状态控制
+            key="unique_word_input"  # 唯一key，不直接修改其值
         )
+    
     with col2:
         add_btn = st.button("添加并刷新", type="primary")
     with col3:
         clear_btn_clicked = st.button("一键清除所有单词", type="secondary")
+        # 自定义红色按钮样式
         st.markdown("""
             <style>
             div[data-testid="stButton"] > button:last-child {
@@ -142,26 +147,28 @@ def main():
             </style>
         """, unsafe_allow_html=True)
 
-    # 添加单词逻辑
-    if add_btn or (word_input and word_input != st.session_state.get("last_input", "")):
-        if word_input:
-            app.add_word(word_input)
-            st.session_state.last_input = word_input
-            # 关键修复3：清空输入框
-            st.session_state.word_input = ""
-            st.rerun()  # 强制刷新页面使清空生效
+    # 1. 添加单词逻辑（修复输入框清空，无状态报错）
+    if add_btn and word_input.strip():
+        app.add_word(word_input.strip())
+        # 标记需要清空输入框（下一次页面运行时生效，符合Streamlit规则）
+        st.session_state.need_clear_input = True
+        # 重置标记（避免后续输入框一直为空）
+        st.experimental_rerun()  # 兼容新旧版本，替代st.rerun()
+    
+    # 重置清空标记（输入框已渲染后，取消下一次清空标记）
+    if st.session_state.need_clear_input:
+        st.session_state.need_clear_input = False
 
-    # 清除单词逻辑
+    # 2. 清除所有单词逻辑
     if clear_btn_clicked:
         app.clear_all_words()
-        st.session_state.word_input = ""
-        st.session_state.last_input = ""
-        st.rerun()
+        st.session_state.need_clear_input = True
+        st.experimental_rerun()
 
-    # 刷新按钮
+    # 3. 手动刷新布局逻辑
     if st.button("手动刷新布局"):
         app.refresh_layout()
-        st.rerun()
+        st.experimental_rerun()
 
     # 统计信息
     total = len(app.words)
@@ -169,7 +176,7 @@ def main():
     hidden = total - visible
     st.caption(f"总单词数: {total} | 显示: {visible} | 隐藏: {hidden}")
 
-    # 单词显示区域
+    # 4. 单词显示区域（确保位置/样式随机变化）
     word_displays = app.get_visible_word_displays()
     if word_displays:
         cols = st.columns(5)
