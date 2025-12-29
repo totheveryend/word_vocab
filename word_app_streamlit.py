@@ -166,7 +166,7 @@ def main():
     hidden = total - visible
     st.caption(f"总单词数: {total} | 显示: {visible} | 隐藏: {hidden}")
 
-    # 4. 单词显示区域（核心修复：禁止单词换行，适配iPad）
+    # 4. 单词显示区域（核心修复：保留完整单词，不换行、不省略，适配iPad）
     word_displays = app.get_visible_word_displays()
     if word_displays:
         cols = st.columns(5)
@@ -181,10 +181,9 @@ def main():
                         margin: 20px;
                         text-align: center;
                         font-weight: bold;
-                        white-space: nowrap; /* 关键1：禁止文本自动换行 */
-                        overflow: hidden; /* 关键2：隐藏超出容器的部分（可选，防止超长单词溢出） */
-                        text-overflow: ellipsis; /* 关键3：超长单词显示省略号（可选，提升美观度） */
-                        min-width: 120px; /* 关键4：给容器设置最小宽度，适配iPad列布局 */
+                        white-space: nowrap; /* 核心：禁止文本自动换行（必须保留） */
+                        min-width: 150px; /* 优化：加大最小宽度，适配长单词，避免挤压 */
+                        padding: 0 10px; /* 优化：左右内边距，让单词更舒展 */
                     ">
                         {display.word.text}
                     </div>
